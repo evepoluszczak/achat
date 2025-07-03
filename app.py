@@ -1,3 +1,5 @@
+# Remplacez entièrement le contenu de app.py par ce code.
+
 import streamlit as st
 import pandas as pd
 import math
@@ -21,7 +23,6 @@ RECORDS_PER_PAGE = 10
 # --- Fonctions de l'UI ---
 @st.dialog("Ajouter / Modifier un Fournisseur")
 def supplier_form(supplier_id=None):
-    # (Le code de cette fonction ne change pas)
     if supplier_id:
         supplier_data = db.get_supplier_by_id(supplier_id)
     else:
@@ -72,7 +73,6 @@ with st.sidebar:
     if uploaded_file:
         if st.button("Analyser le fichier d'import"):
             try:
-                # Ajout de .drop_duplicates() pour prévenir les erreurs de clés en amont
                 if uploaded_file.name.endswith('.csv'):
                     df = pd.read_csv(uploaded_file).drop_duplicates(subset=['Raison Sociale'])
                 else:
@@ -104,23 +104,28 @@ with st.sidebar:
         if conflicts:
             st.warning(f"**{len(conflicts)}** fournisseurs existants ont des données différentes.")
             with st.form("conflict_form"):
-                approved_conflicts = []
-                for i, conflict in enumerate(conflicts):
-                    with st.expander(f"**{conflict['raison_sociale']}** - Données modifiées"):
-                        st.write(f"**ID Oracle :** `{conflict['old_id']}` ➡️ `{conflict['new_id']}`")
-                        st.write(f"**Adresse :** `{conflict['old_adresse']}` ➡️ `{conflict['new_adresse']}`")
-                        
-                        approve = st.checkbox("Approuver ce changement", key=f"approve_{i}")
-                        if approve:
-                            approved_conflicts.append(conflict)
-                
-                # --- NOUVEAU : Deux boutons de soumission ---
                 col1, col2 = st.columns(2)
                 with col1:
                     approve_selected_submitted = st.form_submit_button("Appliquer la sélection")
                 with col2:
                     approve_all_submitted = st.form_submit_button("✅ Approuver TOUT", type="primary")
 
+                st.markdown("---")
+
+                approved_conflicts = []
+                for i, conflict in enumerate(conflicts):
+                    with st.expander(f"**{conflict['raison_sociale']}** - Données modifiées"):
+                        
+                        # --- MODIFICATION : Affichage conditionnel ---
+                        if conflict['id_changed']:
+                            st.write(f"**ID Oracle :** `{conflict['old_id']}` ➡️ `{conflict['new_id']}`")
+                        if conflict['address_changed']:
+                            st.write(f"**Adresse :** `{conflict['old_adresse']}` ➡️ `{conflict['new_adresse']}`")
+                        
+                        approve = st.checkbox("Approuver ce changement", key=f"approve_{i}")
+                        if approve:
+                            approved_conflicts.append(conflict)
+                
                 if approve_selected_submitted:
                     with st.spinner("Application des changements sélectionnés..."):
                         inserted, updated = db.execute_import(new_suppliers, approved_conflicts)
@@ -129,7 +134,6 @@ with st.sidebar:
                     st.rerun()
                 
                 if approve_all_submitted:
-                    # Si "Approuver TOUT" est cliqué, on prend tous les conflits
                     with st.spinner("Application de tous les changements..."):
                         inserted, updated = db.execute_import(new_suppliers, conflicts)
                     st.success(f"{inserted} fournisseurs ajoutés, {updated} mis à jour.")
