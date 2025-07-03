@@ -105,9 +105,6 @@ def get_suppliers_prefill_data():
         }
     return prefill_data
 
-# Remplacez la fonction upsert_suppliers_from_df par les deux fonctions suivantes
-# dans votre fichier database.py.
-
 def analyze_import_data(df):
     """
     Analyse un DataFrame importé et le compare à la base de données.
@@ -126,13 +123,12 @@ def analyze_import_data(df):
         name = row['Raison Sociale']
         new_data = {
             'raison_sociale': name,
-            'id_oracle': str(row['ID Oracle']) if pd.notna(row['ID Oracle']) else '',
+            'id_oracle': str(row['Numéro de fournisseur']) if pd.notna(row['Numéro de fournisseur']) else '',
             'adresse': str(row['Adresse']) if pd.notna(row['Adresse']) else ''
         }
 
         if name in existing_map:
             old_data = existing_map[name]
-            # Assurer la comparaison de chaînes de caractères pour éviter les erreurs de type
             old_id_str = str(old_data['id_oracle']) if pd.notna(old_data['id_oracle']) else ''
             old_adresse_str = str(old_data['adresse']) if pd.notna(old_data['adresse']) else ''
 
@@ -160,14 +156,12 @@ def execute_import(new_suppliers, approved_conflicts):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Insérer les nouveaux fournisseurs
     for supplier in new_suppliers:
         cursor.execute(
             "INSERT INTO suppliers (raison_sociale, id_oracle, adresse, est_prospect) VALUES (?, ?, ?, ?)",
             (supplier['raison_sociale'], supplier['id_oracle'], supplier['adresse'], False)
         )
 
-    # Mettre à jour les fournisseurs avec conflits approuvés
     for conflict in approved_conflicts:
         cursor.execute(
             "UPDATE suppliers SET id_oracle = ?, adresse = ?, derniere_modif = CURRENT_TIMESTAMP WHERE raison_sociale = ?",
@@ -177,7 +171,3 @@ def execute_import(new_suppliers, approved_conflicts):
     conn.commit()
     conn.close()
     return len(new_suppliers), len(approved_conflicts)
-            
-    conn.commit()
-    conn.close()
-    return inserted_count, updated_count
