@@ -105,39 +105,76 @@ def get_suppliers_prefill_data():
         }
     return prefill_data
 
-def upsert_suppliers_from_df(df):
+# Remplacez la fonction upsert_suppliers_from_df par les deux fonctions suivantes
+# dans votre fichier database.py.
+
+def analyze_import_data(df):
     """
-    Met à jour ou insère des fournisseurs depuis un DataFrame.
-    Le DataFrame doit contenir 'Raison Sociale', 'ID Oracle', et 'Adresse'.
+    Analyse un DataFrame importé et le compare à la base de données.
+    Retourne des listes de nouveaux fournisseurs, de fournisseurs à mettre à jour,
+    et de conflits potentiels.
     """
+    conn = get_db_connection()
+    existing_suppliers_df = pd.read_sql_query("SELECT id, raison_sociale, id_oracle, adresse FROM suppliers", conn)
+    conn.close()
+
+    new_suppliers = []
+    conflicts = []
+
+    # Convertir le DataFrame existant en dictionnaire pour un accès rapide
+    existing_map = existing_suppliers_df.set_index('raison_sociale').to_dict('index')
+
+    for _, row in df.iterrows():
+        name = row['Raison Sociale']
+        new_data = {
+            'raison_sociale': name,
+            'id_oracle': str(row['ID Oracle']) if pd.notna(row['ID Oracle']) else '',
+            'adresse': str(row['Adresse']) if pd.notna(row['Adresse']) else ''
+        }
+
+        if name in existing_map:
+            # Le fournisseur existe, on vérifie les conflits
+            old_data = existing_map[name]
+            id_changed = new_data['id_oracle'] != str(old_data['id_oracle'])
+            address_changed = new_data['adresse'] != str(old_data['adresse'])
+
+            if id_changed or address_changed:
+                conflict_details = {
+                    'raison_sociale': name,
+                    'old_id': old_data['id_oracle'],
+                    'new_id': new_data['id_oracle'],
+                    'old_adresse': old_data['adresse'],
+                    'new_adresse': new_data['adresse'],
+                }
+                conflicts.append(conflict_details)
+        else:
+            # Nouveau fournisseur
+            new_suppliers.append(new_data)
+            
+    return new_suppliers, conflicts
+
+def execute_import(new_suppliers, approved_conflicts):
+    """Exécute les insertions et les mises à jour validées par l'utilisateur."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    updated_count = 0
-    inserted_count = 0
+    # Insérer les nouveaux fournisseurs
+    for supplier in new_suppliers:
+        cursor.execute(
+            "INSERT INTO suppliers (raison_sociale, id_oracle, adresse, est_prospect) VALUES (?, ?, ?, ?)",
+            (supplier['raison_sociale'], supplier['id_oracle'], supplier['adresse'], False)
+        )
 
-    for _, row in df.iterrows():
-        raison_sociale = row['Raison Sociale']
-        id_oracle = str(row['ID Oracle']) if pd.notna(row['ID Oracle']) else None
-        adresse = str(row['Adresse']) if pd.notna(row['Adresse']) else None
-
-        cursor.execute("SELECT id FROM suppliers WHERE raison_sociale = ?", (raison_sociale,))
-        result = cursor.fetchone()
-
-        if result:
-            supplier_id = result[0]
-            cursor.execute("""
-                UPDATE suppliers 
-                SET id_oracle = ?, adresse = ?, derniere_modif = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            """, (id_oracle, adresse, supplier_id))
-            updated_count += 1
-        else:
-            cursor.execute("""
-                INSERT INTO suppliers (raison_sociale, id_oracle, est_prospect, adresse)
-                VALUES (?, ?, ?, ?)
-            """, (raison_sociale, id_oracle, False, adresse))
-            inserted_count += 1
+    # Mettre à jour les fournisseurs avec conflits approuvés
+    for conflict in approved_conflicts:
+        cursor.execute(
+            "UPDATE suppliers SET id_oracle = ?, adresse = ?, derniere_modif = CURRENT_TIMESTAMP WHERE raison_sociale = ?",
+            (conflict['new_id'], conflict['new_adresse'], conflict['raison_sociale'])
+        )
+    
+    conn.commit()
+    conn.close()
+    return len(new_suppliers), len(approved_conflicts)
             
     conn.commit()
     conn.close()
