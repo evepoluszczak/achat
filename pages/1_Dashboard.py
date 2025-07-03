@@ -49,7 +49,6 @@ def load_full_data():
     df = pd.read_sql_query("SELECT * FROM suppliers", conn)
     conn.close()
     df['date_creation'] = pd.to_datetime(df['date_creation'])
-    # Assurer que la colonne tags est de type string pour éviter les erreurs
     df['tags'] = df['tags'].astype(str)
     return df
 
@@ -58,6 +57,12 @@ df = load_full_data()
 if df.empty:
     st.warning("Aucune donnée fournisseur à afficher. Veuillez en ajouter via la page de gestion.")
     st.stop()
+
+# --- NOUVEAU : Génération des listes complètes d'options AVANT tout filtrage ---
+all_possible_cantons = sorted(df['pays_canton'].unique())
+all_possible_status = sorted(df['statut_audit'].unique())
+all_possible_tags = sorted(df['tags'].str.split(',').explode().str.strip().dropna().unique())
+
 
 # --- Filtres rapides ---
 st.write("Filtres rapides :")
@@ -84,17 +89,15 @@ if 'quick_filter' in st.session_state:
 st.sidebar.header("Filtres avancés")
 selected_cantons = st.sidebar.multiselect(
     "Filtrer par Pays/Canton",
-    options=df_to_filter['pays_canton'].unique()
+    options=all_possible_cantons # Utilise la liste complète
 )
 selected_status = st.sidebar.multiselect(
     "Filtrer par Statut d'Audit",
-    options=df_to_filter['statut_audit'].unique()
+    options=all_possible_status # Utilise la liste complète
 )
-# NOUVEAU : Filtre par Tag
-all_tags = df_to_filter['tags'].str.split(',').explode().str.strip().dropna().unique()
 selected_tags = st.sidebar.multiselect(
     "Filtrer par Tags",
-    options=sorted(all_tags)
+    options=all_possible_tags # Utilise la liste complète
 )
 
 # --- LOGIQUE DE FILTRAGE ---
@@ -105,8 +108,6 @@ if selected_cantons:
 if selected_status:
     df_filtered = df_filtered[df_filtered['statut_audit'].isin(selected_status)]
 if selected_tags:
-    # Création d'un regex pour trouver au moins un des tags sélectionnés
-    # re.escape est utilisé pour traiter les caractères spéciaux dans les noms des tags
     tag_regex = '|'.join([re.escape(tag) for tag in selected_tags])
     df_filtered = df_filtered[df_filtered['tags'].str.contains(tag_regex, na=False, regex=True)]
 
