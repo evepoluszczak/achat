@@ -76,13 +76,22 @@ if 'quick_filter' in st.session_state:
     elif st.session_state.quick_filter == "prospects":
         df = df[df['est_prospect'] == True]
     elif st.session_state.quick_filter == "audit":
+        # Note: Assurez-vous que "Audit à planifier" est une option valide dans vos données.
         df = df[df['statut_audit'] == "Audit à planifier"]
     # Si 'all', on ne filtre pas et on garde le df complet
 
 # --- Filtres du Dashboard ---
 st.sidebar.header("Filtres avancés")
-selected_cantons = st.sidebar.multiselect("Filtrer par Pays/Canton", options=df['pays_canton'].unique())
-selected_status = st.sidebar.multiselet("Filtrer par Statut d'Audit", options=df['statut_audit'].unique())
+selected_cantons = st.sidebar.multiselect(
+    "Filtrer par Pays/Canton",
+    options=df['pays_canton'].unique()
+)
+
+# CORRECTION DE LA TYPO ICI
+selected_status = st.sidebar.multiselect(
+    "Filtrer par Statut d'Audit",
+    options=df['statut_audit'].unique()
+)
 
 if not selected_cantons: selected_cantons = df['pays_canton'].unique().tolist()
 if not selected_status: selected_status = df['statut_audit'].unique().tolist()
@@ -92,7 +101,7 @@ df_filtered = df[
     df['statut_audit'].isin(selected_status)
 ]
 
-# --- Affichage des KPIs ---
+# --- Affichage des KPIs dans des cartes ---
 st.header("Indicateurs Clés de Performance")
 total_fournisseurs = len(df_filtered)
 nb_critiques = df_filtered['tags'].str.contains('Fournisseur critique', na=False).sum()
@@ -126,13 +135,11 @@ with g1_col2:
     else:
         st.info("Aucune donnée pour ce filtre.")
 
-# --- NOUVEAUX GRAPHIQUES ---
 st.markdown("---")
 g2_col1, g2_col2 = st.columns(2)
 with g2_col1:
     st.subheader("Analyse des Tags")
     if not df_filtered.empty and not df_filtered['tags'].str.strip().eq('').all():
-        # Traitement des tags
         tags_df = df_filtered['tags'].str.split(',').explode().str.strip().value_counts().reset_index()
         tags_df.columns = ['tag', 'count']
         fig_tags = px.bar(tags_df, x='count', y='tag', orientation='h', title="Fréquence des Tags")
@@ -142,7 +149,6 @@ with g2_col1:
 with g2_col2:
     st.subheader("Évolution des ajouts de fournisseurs")
     if not df_filtered.empty:
-        # Traitement pour le graphique temporel
         monthly_adds = df_filtered.set_index('date_creation').resample('M').size().reset_index(name='count')
         monthly_adds['date_creation'] = monthly_adds['date_creation'].dt.strftime('%Y-%m')
         fig_time = px.line(monthly_adds, x='date_creation', y='count', title="Nouveaux fournisseurs par mois", markers=True)
@@ -150,6 +156,5 @@ with g2_col2:
     else:
         st.info("Aucune donnée pour ce filtre.")
 
-# --- NOUVEAU : Données détaillées ---
 with st.expander("Voir les données détaillées de la sélection"):
     st.dataframe(df_filtered)
