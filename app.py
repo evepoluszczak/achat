@@ -23,6 +23,8 @@ if 'user_message' not in st.session_state:
     st.session_state.user_message = None
 if 'show_delete_all_confirmation' not in st.session_state:
     st.session_state.show_delete_all_confirmation = False
+if 'supplier_to_delete' not in st.session_state:
+    st.session_state.supplier_to_delete = None
 
 RECORDS_PER_PAGE = 10
 
@@ -146,15 +148,14 @@ with st.sidebar:
                 st.session_state.import_analysis = None
                 st.rerun()
 
-    # --- NOUVEAU : Section pour la suppression de toutes les données ---
     st.markdown("---")
     st.subheader("Actions dangereuses")
     if st.button("Supprimer tous les fournisseurs", type="primary"):
         st.session_state.show_delete_all_confirmation = True
 
-# --- Boîte de dialogue de confirmation de suppression totale ---
+# --- Boîtes de dialogue de confirmation ---
 if st.session_state.show_delete_all_confirmation:
-    @st.dialog("Confirmation de suppression")
+    @st.dialog("Confirmation de suppression totale")
     def confirm_delete_all():
         st.warning("Êtes-vous absolument certain de vouloir supprimer TOUS les fournisseurs ?")
         st.write("**Cette action est irréversible.**")
@@ -173,6 +174,29 @@ if st.session_state.show_delete_all_confirmation:
     
     confirm_delete_all()
 
+# NOUVEAU : Boîte de dialogue pour la suppression individuelle
+if st.session_state.supplier_to_delete:
+    @st.dialog("Confirmation de suppression")
+    def confirm_delete_single():
+        supplier = st.session_state.supplier_to_delete
+        st.warning(f"Voulez-vous vraiment supprimer le fournisseur suivant ?")
+        st.markdown(f"**{supplier['name']}** (ID: {supplier['id']})")
+        st.error("Cette action est irréversible.")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Annuler"):
+                st.session_state.supplier_to_delete = None
+                st.rerun()
+        with col2:
+            if st.button("Confirmer la suppression", type="primary"):
+                db.delete_supplier(supplier['id'])
+                st.session_state.user_message = {"text": f"Le fournisseur '{supplier['name']}' a été supprimé.", "icon": "🗑️"}
+                st.session_state.supplier_to_delete = None
+                st.rerun()
+    
+    confirm_delete_single()
+
 # --- AFFICHAGE PRINCIPAL ---
 st.markdown("<h3><i class='bi bi-airplane-fill'></i> Outil de Gestion des Données Fournisseurs</h3>", unsafe_allow_html=True)
 
@@ -189,6 +213,7 @@ with col2:
     st.write("")
     if st.button("Ajouter un nouveau fournisseur", use_container_width=True):
         supplier_form()
+
 offset = (st.session_state.page_number - 1) * RECORDS_PER_PAGE
 suppliers_df, total_records = db.get_suppliers(RECORDS_PER_PAGE, offset, search_term)
 total_pages = math.ceil(total_records / RECORDS_PER_PAGE) if total_records > 0 else 1
@@ -208,13 +233,15 @@ if not suppliers_df.empty:
                 st.write(f"**Numéro de fournisseur:** {row['id_oracle']}")
                 st.write(f"**Adresse:** {row['adresse']}")
                 st.write(f"**Prospect:** {'Oui' if row['est_prospect'] else 'Non'}")
+            
             with col3:
                 if st.button("Modifier", key=f"edit_{row['id']}", use_container_width=True):
                     supplier_form(row['id'])
+                # Modification du bouton Supprimer pour déclencher la confirmation
                 if st.button("Supprimer", key=f"del_{row['id']}", type="primary", use_container_width=True):
-                    db.delete_supplier(row['id'])
-                    st.toast(f"Fournisseur '{row['raison_sociale']}' supprimé.", icon="🗑️")
+                    st.session_state.supplier_to_delete = {'id': row['id'], 'name': row['raison_sociale']}
                     st.rerun()
+
     st.write("")
     col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
     with col_nav1:
