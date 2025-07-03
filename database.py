@@ -171,3 +171,10 @@ def execute_import(new_suppliers, approved_conflicts):
     conn.commit()
     conn.close()
     return len(new_suppliers), len(approved_conflicts)
+
+def delete_all_suppliers():
+    """Supprime TOUS les fournisseurs de la base de données."""
+    conn = get_db_connection()
+    conn.execute('DELETE FROM suppliers')
+    conn.commit()
+    conn.close()
