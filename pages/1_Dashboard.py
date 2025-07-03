@@ -8,7 +8,6 @@ st.set_page_config(layout="wide", page_title="Dashboard Fournisseurs")
 st.title("📊 Dashboard et Indicateurs Clés (KPIs)")
 
 # --- Chargement des données ---
-@st.cache_data
 def load_full_data():
     # Pour le dashboard, nous avons besoin de toutes les données
     conn = db.get_db_connection()
