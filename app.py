@@ -1,5 +1,3 @@
-# Remplacez entièrement le contenu de app.py par ce code.
-
 import streamlit as st
 import pandas as pd
 import math
@@ -23,7 +21,7 @@ RECORDS_PER_PAGE = 10
 # --- Fonctions de l'UI ---
 @st.dialog("Ajouter / Modifier un Fournisseur")
 def supplier_form(supplier_id=None):
-    # (Le code de cette fonction ne change pas, il est identique à la version précédente)
+    # (Le code de cette fonction ne change pas)
     if supplier_id:
         supplier_data = db.get_supplier_by_id(supplier_id)
     else:
@@ -44,7 +42,7 @@ def supplier_form(supplier_id=None):
         tab1, tab2 = st.tabs(["📄 Informations Générales", "📞 Contacts & Suivi"])
         with tab1:
             raison_sociale = st.text_input("Raison Sociale", value=default_name)
-            id_oracle = st.text_input("Numéro de fournisseur", value=default_id_oracle)
+            id_oracle = st.text_input("ID Oracle", value=default_id_oracle)
             adresse = st.text_area("Adresse", value=default_adresse)
             pays_canton = st.selectbox("Pays/Canton", ["Genève", "Vaud", "France", "Autre"], index=0)
             est_prospect = st.checkbox("Prospect", value=supplier_data.get('est_prospect', False))
@@ -75,15 +73,14 @@ with st.sidebar:
         if st.button("Analyser le fichier d'import"):
             try:
                 if uploaded_file.name.endswith('.csv'):
-                    df = pd.read_csv(uploaded_file)
+                    df = pd.read_csv(uploaded_file).drop_duplicates(subset=['Raison Sociale'])
                 else:
-                    df = pd.read_excel(uploaded_file)
+                    df = pd.read_excel(uploaded_file).drop_duplicates(subset=['Raison Sociale'])
                 
-                required_cols = ['Raison Sociale', 'Numéro de fournisseur', 'Adresse']
+                required_cols = ['Raison Sociale', 'ID Oracle', 'Adresse']
                 if all(col in df.columns for col in required_cols):
                     with st.spinner("Analyse en cours..."):
                         new, conflicts = db.analyze_import_data(df)
-                        # Stocker les résultats dans l'état de la session
                         st.session_state.import_analysis = {'new': new, 'conflicts': conflicts}
                 else:
                     st.error(f"Le fichier doit contenir les colonnes : {', '.join(required_cols)}.")
@@ -107,12 +104,14 @@ with st.sidebar:
             st.warning(f"**{len(conflicts)}** fournisseurs existants ont des données différentes.")
             approved_conflicts = []
             with st.form("conflict_form"):
-                for conflict in conflicts:
+                # Utiliser enumerate pour obtenir un index unique (i)
+                for i, conflict in enumerate(conflicts):
                     with st.expander(f"**{conflict['raison_sociale']}** - Données modifiées"):
-                        st.write(f"**Numéro de fournisseur :** `{conflict['old_id']}` ➡️ `{conflict['new_id']}`")
+                        st.write(f"**ID Oracle :** `{conflict['old_id']}` ➡️ `{conflict['new_id']}`")
                         st.write(f"**Adresse :** `{conflict['old_adresse']}` ➡️ `{conflict['new_adresse']}`")
                         
-                        approve = st.checkbox("Approuver ce changement", key=conflict['raison_sociale'])
+                        # Créer une clé unique en utilisant l'index i
+                        approve = st.checkbox("Approuver ce changement", key=f"approve_{i}")
                         if approve:
                             approved_conflicts.append(conflict)
                 
@@ -121,19 +120,18 @@ with st.sidebar:
                     with st.spinner("Application des changements..."):
                         inserted, updated = db.execute_import(new_suppliers, approved_conflicts)
                     st.success(f"{inserted} fournisseurs ajoutés, {updated} mis à jour.")
-                    st.session_state.import_analysis = None # Nettoyer l'état
+                    st.session_state.import_analysis = None
                     st.rerun()
         else:
             if st.button("Confirmer l'ajout des nouveaux fournisseurs"):
                 with st.spinner("Application des changements..."):
                     inserted, _ = db.execute_import(new_suppliers, [])
                 st.success(f"{inserted} nouveaux fournisseurs ajoutés.")
-                st.session_state.import_analysis = None # Nettoyer l'état
+                st.session_state.import_analysis = None
                 st.rerun()
 
 
 # --- AFFICHAGE PRINCIPAL ---
-# (Le code de cette section ne change pas, il est identique à la version précédente)
 st.title("✈️ Outil de Gestion des Données Fournisseurs")
 col1, col2 = st.columns([3, 1])
 with col1:
@@ -158,7 +156,7 @@ if not suppliers_df.empty:
                 st.write(f"**Pays/Canton:** {row['pays_canton']}")
                 st.write(f"**Tags:** {row['tags']}")
             with col2:
-                st.write(f"**Numéro de fournisseur:** {row['id_oracle']}")
+                st.write(f"**ID Oracle:** {row['id_oracle']}")
                 st.write(f"**Adresse:** {row['adresse']}")
                 st.write(f"**Prospect:** {'Oui' if row['est_prospect'] else 'Non'}")
             with col3:
