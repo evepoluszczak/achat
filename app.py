@@ -6,6 +6,10 @@ import database as db
 # --- Configuration de la Page ---
 st.set_page_config(layout="wide", page_title="Gestion Fournisseurs GA")
 
+st.markdown("""
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+""", unsafe_allow_html=True)
+
 # --- Constantes pour les options ---
 TAG_OPTIONS = ["Fournisseur critique", "Fournisseur non critique", "Conforme", "Non conforme", "Audit à planifier", "RSE+", "Innovation"]
 AUDIT_STATUS_OPTIONS = ["Non concerné", "En attente", "Planifié", "Réalisé", "Non-conformité majeure"]
@@ -17,6 +21,8 @@ if 'import_analysis' not in st.session_state:
     st.session_state.import_analysis = None
 if 'user_message' not in st.session_state:
     st.session_state.user_message = None
+if 'show_delete_all_confirmation' not in st.session_state:
+    st.session_state.show_delete_all_confirmation = False
 
 RECORDS_PER_PAGE = 10
 
@@ -140,6 +146,32 @@ with st.sidebar:
                 st.session_state.import_analysis = None
                 st.rerun()
 
+    # --- NOUVEAU : Section pour la suppression de toutes les données ---
+    st.markdown("---")
+    st.subheader("Actions dangereuses")
+    if st.button("Supprimer tous les fournisseurs", type="primary"):
+        st.session_state.show_delete_all_confirmation = True
+
+# --- Boîte de dialogue de confirmation de suppression totale ---
+if st.session_state.show_delete_all_confirmation:
+    @st.dialog("Confirmation de suppression")
+    def confirm_delete_all():
+        st.warning("Êtes-vous absolument certain de vouloir supprimer TOUS les fournisseurs ?")
+        st.write("**Cette action est irréversible.**")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Annuler"):
+                st.session_state.show_delete_all_confirmation = False
+                st.rerun()
+        with col2:
+            if st.button("Oui, supprimer tout", type="primary"):
+                db.delete_all_suppliers()
+                st.session_state.user_message = {"text": "Tous les fournisseurs ont été supprimés.", "icon": "🗑️"}
+                st.session_state.show_delete_all_confirmation = False
+                st.rerun()
+    
+    confirm_delete_all()
 
 # --- AFFICHAGE PRINCIPAL ---
 st.markdown("<h3><i class='bi bi-airplane-fill'></i> Outil de Gestion des Données Fournisseurs</h3>", unsafe_allow_html=True)
@@ -157,7 +189,6 @@ with col2:
     st.write("")
     if st.button("Ajouter un nouveau fournisseur", use_container_width=True):
         supplier_form()
-
 offset = (st.session_state.page_number - 1) * RECORDS_PER_PAGE
 suppliers_df, total_records = db.get_suppliers(RECORDS_PER_PAGE, offset, search_term)
 total_pages = math.ceil(total_records / RECORDS_PER_PAGE) if total_records > 0 else 1
