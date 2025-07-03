@@ -98,14 +98,14 @@ def get_suppliers_map():
     conn = get_db_connection()
     df = pd.read_sql_query("SELECT raison_sociale, id_oracle FROM suppliers", conn)
     conn.close()
-    # Filtre les fournisseurs qui ont un ID Oracle
+    # Filtre les fournisseurs qui ont un Numéro de fournisseur
     df = df.dropna(subset=['id_oracle'])
     return pd.Series(df.id_oracle.values, index=df.raison_sociale).to_dict()
 
 def upsert_suppliers_from_df(df):
     """
     Met à jour ou insère des fournisseurs depuis un DataFrame.
-    Le DataFrame doit contenir les colonnes 'Raison Sociale' et 'ID Oracle'.
+    Le DataFrame doit contenir les colonnes 'Raison Sociale' et 'Numéro de fournisseur'.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -115,8 +115,8 @@ def upsert_suppliers_from_df(df):
 
     for _, row in df.iterrows():
         raison_sociale = row['Raison Sociale']
-        # Assurer que l'ID Oracle est traité comme une chaîne de caractères
-        id_oracle = str(row['ID Oracle']) if pd.notna(row['ID Oracle']) else None
+        # Assurer que l'Numéro de fournisseur est traité comme une chaîne de caractères
+        id_oracle = str(row['Numéro de fournisseur']) if pd.notna(row['Numéro de fournisseur']) else None
 
 
         # Vérifie si le fournisseur existe déjà
@@ -124,7 +124,7 @@ def upsert_suppliers_from_df(df):
         result = cursor.fetchone()
 
         if result:
-            # Met à jour l'ID Oracle s'il existe déjà
+            # Met à jour l'Numéro de fournisseur s'il existe déjà
             supplier_id = result[0]
             cursor.execute("UPDATE suppliers SET id_oracle = ?, derniere_modif = CURRENT_TIMESTAMP WHERE id = ?", (id_oracle, supplier_id))
             updated_count += 1
