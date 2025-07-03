@@ -58,9 +58,10 @@ if df.empty:
     st.warning("Aucune donnée fournisseur à afficher. Veuillez en ajouter via la page de gestion.")
     st.stop()
 
-# --- NOUVEAU : Génération des listes complètes d'options AVANT tout filtrage ---
-all_possible_cantons = sorted(df['pays_canton'].unique())
-all_possible_status = sorted(df['statut_audit'].unique())
+# --- Génération des listes complètes d'options AVANT tout filtrage ---
+# CORRECTION : Ajout de .dropna() pour supprimer les valeurs vides avant de trier
+all_possible_cantons = sorted(df['pays_canton'].dropna().unique())
+all_possible_status = sorted(df['statut_audit'].dropna().unique())
 all_possible_tags = sorted(df['tags'].str.split(',').explode().str.strip().dropna().unique())
 
 
@@ -89,15 +90,15 @@ if 'quick_filter' in st.session_state:
 st.sidebar.header("Filtres avancés")
 selected_cantons = st.sidebar.multiselect(
     "Filtrer par Pays/Canton",
-    options=all_possible_cantons # Utilise la liste complète
+    options=all_possible_cantons 
 )
 selected_status = st.sidebar.multiselect(
     "Filtrer par Statut d'Audit",
-    options=all_possible_status # Utilise la liste complète
+    options=all_possible_status
 )
 selected_tags = st.sidebar.multiselect(
     "Filtrer par Tags",
-    options=all_possible_tags # Utilise la liste complète
+    options=all_possible_tags
 )
 
 # --- LOGIQUE DE FILTRAGE ---
