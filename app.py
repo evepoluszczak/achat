@@ -46,7 +46,7 @@ def supplier_form(supplier_id=None):
         
         with tab1:
             raison_sociale = st.text_input("Raison Sociale", value=default_name)
-            id_oracle = st.text_input("ID Oracle", value=default_id_oracle)
+            id_oracle = st.text_input("Numéro de fournisseur", value=default_id_oracle)
             adresse = st.text_area("Adresse", value=supplier_data.get('adresse', ''))
             pays_canton = st.selectbox("Pays/Canton", ["Genève", "Vaud", "France", "Autre"], index=0)
             est_prospect = st.checkbox("Prospect", value=supplier_data.get('est_prospect', False))
@@ -90,12 +90,12 @@ with st.sidebar:
                     df = pd.read_excel(uploaded_file)
                 
                 # Vérification des colonnes
-                if 'Raison Sociale' in df.columns and 'ID Oracle' in df.columns:
+                if 'Raison Sociale' in df.columns and 'Numéro de fournisseur' in df.columns:
                     with st.spinner("Importation en cours..."):
                         inserted, updated = db.upsert_suppliers_from_df(df)
                     st.success(f"Importation terminée ! 🎉\n- {inserted} fournisseurs ajoutés.\n- {updated} fournisseurs mis à jour.")
                 else:
-                    st.error("Le fichier doit contenir les colonnes 'Raison Sociale' et 'ID Oracle'.")
+                    st.error("Le fichier doit contenir les colonnes 'Raison Sociale' et 'Numéro de fournisseur'.")
             except Exception as e:
                 st.error(f"Une erreur est survenue lors de l'import : {e}")
 
@@ -130,7 +130,7 @@ if not suppliers_df.empty:
                 st.write(f"**Pays/Canton:** {row['pays_canton']}")
                 st.write(f"**Tags:** {row['tags']}")
             with col2:
-                st.write(f"**ID Oracle:** {row['id_oracle']}")
+                st.write(f"**Numéro de fournisseur:** {row['id_oracle']}")
                 st.write(f"**Adresse:** {row['adresse']}")
                 st.write(f"**Prospect:** {'Oui' if row['est_prospect'] else 'Non'}")
             
