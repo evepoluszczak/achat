@@ -128,7 +128,7 @@ def analyze_import_data(df):
         name = row['Raison Sociale']
         new_data = {
             'raison_sociale': name,
-            'id_oracle': str(row['ID Oracle']) if pd.notna(row['ID Oracle']) else '',
+            'id_oracle': str(row['Numéro de fournisseur']) if pd.notna(row['Numéro de fournisseur']) else '',
             'adresse': str(row['Adresse']) if pd.notna(row['Adresse']) else ''
         }
 
