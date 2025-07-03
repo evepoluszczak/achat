@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import database as db
+import re
 
 st.set_page_config(layout="wide", page_title="Dashboard Fournisseurs")
 
@@ -47,8 +48,9 @@ def load_full_data():
     conn = db.get_db_connection()
     df = pd.read_sql_query("SELECT * FROM suppliers", conn)
     conn.close()
-    # Convertir les dates pour les graphiques temporels
     df['date_creation'] = pd.to_datetime(df['date_creation'])
+    # Assurer que la colonne tags est de type string pour éviter les erreurs
+    df['tags'] = df['tags'].astype(str)
     return df
 
 df = load_full_data()
@@ -57,7 +59,7 @@ if df.empty:
     st.warning("Aucune donnée fournisseur à afficher. Veuillez en ajouter via la page de gestion.")
     st.stop()
 
-# --- NOUVEAU : Filtres rapides (simulent le clic sur les KPIs) ---
+# --- Filtres rapides ---
 st.write("Filtres rapides :")
 col_f1, col_f2, col_f3, col_f4 = st.columns(4)
 if col_f1.button("Voir Tout", use_container_width=True):
@@ -69,39 +71,47 @@ if col_f3.button("Prospects Uniquement", use_container_width=True):
 if col_f4.button("Audits à planifier", use_container_width=True):
     st.session_state.quick_filter = "audit"
 
-# Pré-filtrage des données basé sur les filtres rapides
+df_to_filter = df.copy()
 if 'quick_filter' in st.session_state:
     if st.session_state.quick_filter == "critical":
-        df = df[df['tags'].str.contains('Fournisseur critique', na=False)]
+        df_to_filter = df[df['tags'].str.contains('Fournisseur critique', na=False)]
     elif st.session_state.quick_filter == "prospects":
-        df = df[df['est_prospect'] == True]
+        df_to_filter = df[df['est_prospect'] == True]
     elif st.session_state.quick_filter == "audit":
-        # Note: Assurez-vous que "Audit à planifier" est une option valide dans vos données.
-        df = df[df['statut_audit'] == "Audit à planifier"]
-    # Si 'all', on ne filtre pas et on garde le df complet
+        df_to_filter = df[df['statut_audit'] == "Audit à planifier"]
 
-# --- Filtres du Dashboard ---
+# --- Filtres avancés du Dashboard ---
 st.sidebar.header("Filtres avancés")
 selected_cantons = st.sidebar.multiselect(
     "Filtrer par Pays/Canton",
-    options=df['pays_canton'].unique()
+    options=df_to_filter['pays_canton'].unique()
 )
-
-# CORRECTION DE LA TYPO ICI
 selected_status = st.sidebar.multiselect(
     "Filtrer par Statut d'Audit",
-    options=df['statut_audit'].unique()
+    options=df_to_filter['statut_audit'].unique()
+)
+# NOUVEAU : Filtre par Tag
+all_tags = df_to_filter['tags'].str.split(',').explode().str.strip().dropna().unique()
+selected_tags = st.sidebar.multiselect(
+    "Filtrer par Tags",
+    options=sorted(all_tags)
 )
 
-if not selected_cantons: selected_cantons = df['pays_canton'].unique().tolist()
-if not selected_status: selected_status = df['statut_audit'].unique().tolist()
+# --- LOGIQUE DE FILTRAGE ---
+df_filtered = df_to_filter
 
-df_filtered = df[
-    df['pays_canton'].isin(selected_cantons) &
-    df['statut_audit'].isin(selected_status)
-]
+if selected_cantons:
+    df_filtered = df_filtered[df_filtered['pays_canton'].isin(selected_cantons)]
+if selected_status:
+    df_filtered = df_filtered[df_filtered['statut_audit'].isin(selected_status)]
+if selected_tags:
+    # Création d'un regex pour trouver au moins un des tags sélectionnés
+    # re.escape est utilisé pour traiter les caractères spéciaux dans les noms des tags
+    tag_regex = '|'.join([re.escape(tag) for tag in selected_tags])
+    df_filtered = df_filtered[df_filtered['tags'].str.contains(tag_regex, na=False, regex=True)]
 
-# --- Affichage des KPIs dans des cartes ---
+
+# --- Affichage des KPIs ---
 st.header("Indicateurs Clés de Performance")
 total_fournisseurs = len(df_filtered)
 nb_critiques = df_filtered['tags'].str.contains('Fournisseur critique', na=False).sum()
