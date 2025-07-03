@@ -5,7 +5,8 @@ import database as db
 
 st.set_page_config(layout="wide", page_title="Dashboard Fournisseurs")
 
-st.title("📊 Dashboard et Indicateurs Clés (KPIs)")
+# Utilisation de markdown pour le titre avec icône
+st.markdown("<h3><i class='bi bi-bar-chart-line-fill'></i> Dashboard et Indicateurs Clés (KPIs)</h3>", unsafe_allow_html=True)
 
 # --- Style CSS pour les cartes et importation des icônes ---
 st.markdown("""
