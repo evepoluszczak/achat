@@ -6,6 +6,15 @@ import database as db
 # --- Configuration de la Page ---
 st.set_page_config(layout="wide", page_title="Gestion Fournisseurs GA")
 
+# --- Constantes pour les options des listes déroulantes ---
+TAG_OPTIONS = [
+    "Fournisseur critique", "Fournisseur non critique", "Conforme", "Non conforme", 
+    "Audit à planifier", "RSE+", "Innovation"
+]
+AUDIT_STATUS_OPTIONS = [
+    "Non concerné", "En attente", "Planifié", "Réalisé", "Non-conformité majeure"
+]
+
 # --- État de Session ---
 if 'page_number' not in st.session_state:
     st.session_state.page_number = 1
@@ -48,8 +57,8 @@ def supplier_form(supplier_id=None):
 
         with tab2:
             contacts = st.text_area("Contacts", value=supplier_data.get('contacts', ''))
-            tags = st.multiselect("Tags", ["Fournisseur critique", "Conforme", "RSE+"], default=supplier_data.get('tags', '').split(',') if supplier_data.get('tags') else [])
-            statut_audit = st.selectbox("Statut Audit", ["Non concerné", "En attente", "Réalisé"], index=0)
+            tags = st.multiselect("Tags", options=TAG_OPTIONS, default=supplier_data.get('tags', '').split(',') if supplier_data.get('tags') else [])
+            statut_audit = st.selectbox("Statut Audit", options=AUDIT_STATUS_OPTIONS, index=0)
             commentaires = st.text_area("Commentaires", value=supplier_data.get('commentaires', ''))
 
         submitted = st.form_submit_button("Enregistrer")
