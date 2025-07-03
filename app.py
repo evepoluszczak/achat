@@ -1,3 +1,5 @@
+# Remplacez le contenu de votre app.py par celui-ci
+
 import streamlit as st
 import pandas as pd
 import math
@@ -12,8 +14,6 @@ db.init_db()
 # --- État de Session ---
 if 'page_number' not in st.session_state:
     st.session_state.page_number = 1
-if 'editing_supplier' not in st.session_state:
-    st.session_state.editing_supplier = None
 
 RECORDS_PER_PAGE = 10
 
@@ -26,12 +26,27 @@ def supplier_form(supplier_id=None):
     else:
         supplier_data = {}
 
+    # Pour l'autocomplétion
+    suppliers_map = db.get_suppliers_map()
+    supplier_names = [""] + list(suppliers_map.keys())
+
     with st.form("supplier_form"):
+        # Section d'autocomplétion
+        st.write("Pour pré-remplir, choisissez un fournisseur connu :")
+        selected_name = st.selectbox("Choisir un fournisseur", options=supplier_names, index=0, label_visibility="collapsed")
+        
+        st.markdown("---")
+
+        # Pré-remplissage des champs
+        default_name = selected_name if selected_name else supplier_data.get('raison_sociale', '')
+        default_id_oracle = suppliers_map.get(selected_name, supplier_data.get('id_oracle', ''))
+
+
         tab1, tab2 = st.tabs(["📄 Informations Générales", "📞 Contacts & Suivi"])
         
         with tab1:
-            raison_sociale = st.text_input("Raison Sociale", value=supplier_data.get('raison_sociale', ''))
-            id_oracle = st.text_input("ID Oracle", value=supplier_data.get('id_oracle', ''))
+            raison_sociale = st.text_input("Raison Sociale", value=default_name)
+            id_oracle = st.text_input("ID Oracle", value=default_id_oracle)
             adresse = st.text_area("Adresse", value=supplier_data.get('adresse', ''))
             pays_canton = st.selectbox("Pays/Canton", ["Genève", "Vaud", "France", "Autre"], index=0)
             est_prospect = st.checkbox("Prospect", value=supplier_data.get('est_prospect', False))
@@ -57,7 +72,35 @@ def supplier_form(supplier_id=None):
                 st.toast(f"Fournisseur '{raison_sociale}' ajouté !", icon="🎉")
             st.rerun()
 
-# --- Affichage Principal ---
+
+# --- BARRE LATERALE (SIDEBAR) ---
+with st.sidebar:
+    st.header("⚙️ Actions")
+    st.subheader("Importer une liste")
+    uploaded_file = st.file_uploader(
+        "Importer un fichier (CSV ou Excel)", 
+        type=['csv', 'xlsx']
+    )
+    if uploaded_file:
+        if st.button("Lancer l'importation"):
+            try:
+                if uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
+                else:
+                    df = pd.read_excel(uploaded_file)
+                
+                # Vérification des colonnes
+                if 'Raison Sociale' in df.columns and 'ID Oracle' in df.columns:
+                    with st.spinner("Importation en cours..."):
+                        inserted, updated = db.upsert_suppliers_from_df(df)
+                    st.success(f"Importation terminée ! 🎉\n- {inserted} fournisseurs ajoutés.\n- {updated} fournisseurs mis à jour.")
+                else:
+                    st.error("Le fichier doit contenir les colonnes 'Raison Sociale' et 'ID Oracle'.")
+            except Exception as e:
+                st.error(f"Une erreur est survenue lors de l'import : {e}")
+
+
+# --- AFFICHAGE PRINCIPAL ---
 st.title("✈️ Outil de Gestion des Données Fournisseurs")
 
 col1, col2 = st.columns([3, 1])
@@ -72,15 +115,14 @@ with col2:
 # Récupération des données
 offset = (st.session_state.page_number - 1) * RECORDS_PER_PAGE
 suppliers_df, total_records = db.get_suppliers(RECORDS_PER_PAGE, offset, search_term)
-total_pages = math.ceil(total_records / RECORDS_PER_PAGE)
+total_pages = math.ceil(total_records / RECORDS_PER_PAGE) if total_records > 0 else 1
 
 st.header("Liste des Fournisseurs")
 st.write(f"Affichage de {len(suppliers_df)} sur {total_records} fournisseurs.")
 
 if not suppliers_df.empty:
-    # --- Affichage des données avec des boutons d'action ---
     for index, row in suppliers_df.iterrows():
-        expander = st.expander(f"**{row['raison_sociale']}** - ID: {row['id']}")
+        expander = st.expander(f"**{row['raison_sociale']}** (ID: {row['id']})")
         with expander:
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
@@ -99,8 +141,7 @@ if not suppliers_df.empty:
                     db.delete_supplier(row['id'])
                     st.toast(f"Fournisseur '{row['raison_sociale']}' supprimé.", icon="🗑️")
                     st.rerun()
-
-    # --- Contrôles de Pagination ---
+    
     st.write("")
     col_nav1, col_nav2, col_nav3 = st.columns([2, 1, 2])
     with col_nav1:
@@ -116,4 +157,4 @@ if not suppliers_df.empty:
                 st.session_state.page_number += 1
                 st.rerun()
 else:
-    st.info("Aucun fournisseur trouvé. Cliquez sur 'Ajouter un nouveau fournisseur' pour commencer.")
+    st.info("Aucun fournisseur trouvé. Importez une liste ou cliquez sur 'Ajouter un nouveau fournisseur' pour commencer.")
