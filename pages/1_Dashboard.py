@@ -7,9 +7,8 @@ st.set_page_config(layout="wide", page_title="Dashboard Fournisseurs")
 
 st.title("📊 Dashboard et Indicateurs Clés (KPIs)")
 
-# --- Chargement des données ---
+# --- Chargement des données (sans cache) ---
 def load_full_data():
-    # Pour le dashboard, nous avons besoin de toutes les données
     conn = db.get_db_connection()
     df = pd.read_sql_query("SELECT * FROM suppliers", conn)
     conn.close()
@@ -24,17 +23,26 @@ if df.empty:
 
 # --- Filtres du Dashboard ---
 st.sidebar.header("Filtres du Dashboard")
+
+# Les filtres sont maintenant vides par défaut
 selected_cantons = st.sidebar.multiselect(
     "Filtrer par Pays/Canton",
-    options=df['pays_canton'].unique(),
-    default=df['pays_canton'].unique()
+    options=df['pays_canton'].unique()
 )
 
 selected_status = st.sidebar.multiselect(
     "Filtrer par Statut d'Audit",
-    options=df['statut_audit'].unique(),
-    default=df['statut_audit'].unique()
+    options=df['statut_audit'].unique()
 )
+
+# --- NOUVELLE LOGIQUE DE FILTRAGE ---
+# Si une liste de filtres est vide, on la remplace par toutes les options possibles
+# ce qui équivaut à un "Select All"
+if not selected_cantons:
+    selected_cantons = df['pays_canton'].unique()
+    
+if not selected_status:
+    selected_status = df['statut_audit'].unique()
 
 # Application des filtres
 df_filtered = df[
@@ -52,7 +60,6 @@ with col1:
     st.metric(label="Nombre Total de Fournisseurs", value=total_fournisseurs)
 
 with col2:
-    # Compter les fournisseurs avec le tag "critique"
     nb_critiques = df_filtered['tags'].str.contains('Fournisseur critique', na=False).sum()
     st.metric(label="Fournisseurs Critiques", value=f"{nb_critiques}")
 
