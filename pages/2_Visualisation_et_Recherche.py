@@ -10,7 +10,6 @@ st.set_page_config(page_title="Visualisation des données", layout="wide")
 DATA_FILE = 'data/suppliers.csv'
 
 # --- Utility Functions ---
-@st.cache_data
 def load_data():
     """Loads data from the CSV file."""
     if os.path.exists(DATA_FILE):
