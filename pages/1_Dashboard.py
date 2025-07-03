@@ -47,6 +47,8 @@ def load_full_data():
     conn = db.get_db_connection()
     df = pd.read_sql_query("SELECT * FROM suppliers", conn)
     conn.close()
+    # Convertir les dates pour les graphiques temporels
+    df['date_creation'] = pd.to_datetime(df['date_creation'])
     return df
 
 df = load_full_data()
@@ -55,105 +57,47 @@ if df.empty:
     st.warning("Aucune donnée fournisseur à afficher. Veuillez en ajouter via la page de gestion.")
     st.stop()
 
-# --- Filtres du Dashboard ---
-st.sidebar.header("Filtres du Dashboard")
-selected_cantons = st.sidebar.multiselect(
-    "Filtrer par Pays/Canton",
-    options=df['pays_canton'].unique()
-)
-selected_status = st.sidebar.multiselect(
-    "Filtrer par Statut d'Audit",
-    options=df['statut_audit'].unique()
-)
+# --- NOUVEAU : Filtres rapides (simulent le clic sur les KPIs) ---
+st.write("Filtres rapides :")
+col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+if col_f1.button("Voir Tout", use_container_width=True):
+    st.session_state.quick_filter = "all"
+if col_f2.button("Fournisseurs Critiques", use_container_width=True):
+    st.session_state.quick_filter = "critical"
+if col_f3.button("Prospects Uniquement", use_container_width=True):
+    st.session_state.quick_filter = "prospects"
+if col_f4.button("Audits à planifier", use_container_width=True):
+    st.session_state.quick_filter = "audit"
 
-if not selected_cantons:
-    selected_cantons = df['pays_canton'].unique().tolist()
-if not selected_status:
-    selected_status = df['statut_audit'].unique().tolist()
+# Pré-filtrage des données basé sur les filtres rapides
+if 'quick_filter' in st.session_state:
+    if st.session_state.quick_filter == "critical":
+        df = df[df['tags'].str.contains('Fournisseur critique', na=False)]
+    elif st.session_state.quick_filter == "prospects":
+        df = df[df['est_prospect'] == True]
+    elif st.session_state.quick_filter == "audit":
+        df = df[df['statut_audit'] == "Audit à planifier"]
+    # Si 'all', on ne filtre pas et on garde le df complet
+
+# --- Filtres du Dashboard ---
+st.sidebar.header("Filtres avancés")
+selected_cantons = st.sidebar.multiselect("Filtrer par Pays/Canton", options=df['pays_canton'].unique())
+selected_status = st.sidebar.multiselet("Filtrer par Statut d'Audit", options=df['statut_audit'].unique())
+
+if not selected_cantons: selected_cantons = df['pays_canton'].unique().tolist()
+if not selected_status: selected_status = df['statut_audit'].unique().tolist()
 
 df_filtered = df[
     df['pays_canton'].isin(selected_cantons) &
     df['statut_audit'].isin(selected_status)
 ]
 
-# --- Affichage des KPIs dans des cartes ---
+# --- Affichage des KPIs ---
 st.header("Indicateurs Clés de Performance")
-
 total_fournisseurs = len(df_filtered)
 nb_critiques = df_filtered['tags'].str.contains('Fournisseur critique', na=False).sum()
 nb_prospects = df_filtered['est_prospect'].sum()
 
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <div class="kpi-label">Fournisseurs Actifs</div>
-                <div class="kpi-value">{total_fournisseurs}</div>
-            </div>
-            <i class="bi bi-building kpi-icon"></i>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <div class="kpi-label">Fournisseurs Critiques</div>
-                <div class="kpi-value">{nb_critiques}</div>
-            </div>
-            <i class="bi bi-exclamation-triangle-fill kpi-icon"></i>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <div class="kpi-label">Prospects</div>
-                <div class="kpi-value">{nb_prospects}</div>
-            </div>
-            <i class="bi bi-binoculars-fill kpi-icon"></i>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-st.markdown("---")
-
-# --- Graphiques Dynamiques ---
-st.header("Analyses Visuelles")
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("Répartition par Pays/Canton")
-    if not df_filtered.empty:
-        fig_canton = px.pie(
-            df_filtered['pays_canton'].value_counts().reset_index(),
-            values='count',
-            names='pays_canton',
-            title="Distribution Géographique"
-        )
-        st.plotly_chart(fig_canton, use_container_width=True)
-    else:
-        st.info("Aucune donnée pour ce filtre.")
-
-with col2:
-    st.subheader("Répartition par Statut d'Audit")
-    if not df_filtered.empty:
-        fig_audit = px.bar(
-            df_filtered['statut_audit'].value_counts().reset_index(),
-            x='statut_audit',
-            y='count',
-            title="Statuts des Audits Fournisseurs",
-            labels={'statut_audit': 'Statut', 'count': 'Nombre'}
-        )
-        st.plotly_chart(fig_audit, use_container_width=True)
-    else:
-        st.info("Aucune donnée pour ce filtre.")
+kpi1, kpi2, kpi3 = st.columns(3)
+with kpi1:
+    st.markdown(f'<div class="kpi-card"><div style="display: flex; justify-content: space-between; align-items: center;"><div><div class="kpi-label">Fournisseurs (filtrés)</div><div class="kpi-value">{total_fournisseurs}</div></div><i class="bi bi-building kpi-icon"></i></div></div>
