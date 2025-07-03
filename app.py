@@ -174,13 +174,12 @@ if st.session_state.show_delete_all_confirmation:
     
     confirm_delete_all()
 
-# NOUVEAU : Boîte de dialogue pour la suppression individuelle
 if st.session_state.supplier_to_delete:
     @st.dialog("Confirmation de suppression")
     def confirm_delete_single():
         supplier = st.session_state.supplier_to_delete
         st.warning(f"Voulez-vous vraiment supprimer le fournisseur suivant ?")
-        st.markdown(f"**{supplier['name']}** (ID: {supplier['id']})")
+        st.markdown(f"**{supplier['name']}**")
         st.error("Cette action est irréversible.")
 
         col1, col2 = st.columns(2)
@@ -222,8 +221,11 @@ st.write(f"Affichage de {len(suppliers_df)} sur {total_records} fournisseurs.")
 
 if not suppliers_df.empty:
     for index, row in suppliers_df.iterrows():
-        expander = st.expander(f"{row['raison_sociale']} (ID: {row['id']})")
-        with expander:
+        # --- MODIFICATION DE L'AFFICHAGE ---
+        supplier_num = row['id_oracle'] if pd.notna(row['id_oracle']) and row['id_oracle'] else "N/A"
+        expander_title = f"{row['raison_sociale']} (N° Fournisseur: {supplier_num})"
+        
+        with st.expander(expander_title):
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 st.write(f"**Statut Audit:** {row['statut_audit']}")
@@ -237,7 +239,6 @@ if not suppliers_df.empty:
             with col3:
                 if st.button("Modifier", key=f"edit_{row['id']}", use_container_width=True):
                     supplier_form(row['id'])
-                # Modification du bouton Supprimer pour déclencher la confirmation
                 if st.button("Supprimer", key=f"del_{row['id']}", type="primary", use_container_width=True):
                     st.session_state.supplier_to_delete = {'id': row['id'], 'name': row['raison_sociale']}
                     st.rerun()
