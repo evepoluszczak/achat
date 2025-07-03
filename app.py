@@ -15,6 +15,8 @@ if 'page_number' not in st.session_state:
     st.session_state.page_number = 1
 if 'import_analysis' not in st.session_state:
     st.session_state.import_analysis = None
+if 'user_message' not in st.session_state:
+    st.session_state.user_message = None
 
 RECORDS_PER_PAGE = 10
 
@@ -38,7 +40,7 @@ def supplier_form(supplier_id=None):
         default_id_oracle = selected_data.get('id_oracle', supplier_data.get('id_oracle', ''))
         default_adresse = selected_data.get('adresse', supplier_data.get('adresse', ''))
 
-        tab1, tab2 = st.tabs(["📄 Informations Générales", "📞 Contacts & Suivi"])
+        tab1, tab2 = st.tabs(["Informations Générales", "Contacts & Suivi"])
         with tab1:
             raison_sociale = st.text_input("Raison Sociale", value=default_name)
             id_oracle = st.text_input("Numéro de fournisseur", value=default_id_oracle)
@@ -56,15 +58,15 @@ def supplier_form(supplier_id=None):
             form_data = {"raison_sociale": raison_sociale, "id_oracle": id_oracle, "adresse": adresse, "pays_canton": pays_canton, "est_prospect": est_prospect, "contacts": contacts, "tags": tags, "statut_audit": statut_audit, "commentaires": commentaires}
             if supplier_id:
                 db.update_supplier(supplier_id, form_data)
-                st.toast(f"Fournisseur '{raison_sociale}' mis à jour !", icon="✅")
+                st.session_state.user_message = {"text": f"Fournisseur '{raison_sociale}' mis à jour.", "icon": "✅"}
             else:
                 db.add_supplier(form_data)
-                st.toast(f"Fournisseur '{raison_sociale}' ajouté !", icon="🎉")
+                st.session_state.user_message = {"text": f"Fournisseur '{raison_sociale}' ajouté.", "icon": "🎉"}
             st.rerun()
 
 # --- BARRE LATERALE (SIDEBAR) ---
 with st.sidebar:
-    st.header("⚙️ Actions")
+    st.header("Actions")
     st.subheader("Importer une liste")
     uploaded_file = st.file_uploader("Importer un fichier (CSV ou Excel)", type=['csv', 'xlsx'])
     
@@ -105,13 +107,12 @@ with st.sidebar:
                 with col1:
                     approve_selected_submitted = st.form_submit_button("Appliquer la sélection")
                 with col2:
-                    approve_all_submitted = st.form_submit_button("✅ Approuver TOUT", type="primary")
+                    approve_all_submitted = st.form_submit_button("Approuver TOUT", type="primary")
 
                 st.markdown("---")
-
                 approved_conflicts = []
                 for i, conflict in enumerate(conflicts):
-                    with st.expander(f"**{conflict['raison_sociale']}** - Données modifiées"):
+                    with st.expander(f"{conflict['raison_sociale']} - Données modifiées"):
                         if conflict['id_changed']:
                             st.write(f"**Numéro de fournisseur :** `{conflict['old_id']}` ➡️ `{conflict['new_id']}`")
                         if conflict['address_changed']:
@@ -122,46 +123,50 @@ with st.sidebar:
                             approved_conflicts.append(conflict)
                 
                 if approve_selected_submitted:
-                    with st.spinner("Application des changements sélectionnés..."):
-                        inserted, updated = db.execute_import(new_suppliers, approved_conflicts)
-                    st.success(f"{inserted} fournisseurs ajoutés, {updated} mis à jour.")
+                    inserted, updated = db.execute_import(new_suppliers, approved_conflicts)
+                    st.session_state.user_message = {"text": f"Importation terminée : {inserted} fournisseurs ajoutés, {updated} mis à jour.", "icon": "✅"}
                     st.session_state.import_analysis = None
                     st.rerun()
                 
                 if approve_all_submitted:
-                    with st.spinner("Application de tous les changements..."):
-                        inserted, updated = db.execute_import(new_suppliers, conflicts)
-                    st.success(f"{inserted} fournisseurs ajoutés, {updated} mis à jour.")
+                    inserted, updated = db.execute_import(new_suppliers, conflicts)
+                    st.session_state.user_message = {"text": f"Importation terminée : {inserted} fournisseurs ajoutés, {updated} mis à jour.", "icon": "✅"}
                     st.session_state.import_analysis = None
                     st.rerun()
-
         else:
             if st.button("Confirmer l'ajout des nouveaux fournisseurs"):
-                with st.spinner("Application des changements..."):
-                    inserted, _ = db.execute_import(new_suppliers, [])
-                st.success(f"{inserted} nouveaux fournisseurs ajoutés.")
+                inserted, _ = db.execute_import(new_suppliers, [])
+                st.session_state.user_message = {"text": f"Importation terminée : {inserted} nouveaux fournisseurs ajoutés.", "icon": "✅"}
                 st.session_state.import_analysis = None
                 st.rerun()
 
 
 # --- AFFICHAGE PRINCIPAL ---
-st.title("✈️ Outil de Gestion des Données Fournisseurs")
+st.markdown("<h3><i class='bi bi-airplane-fill'></i> Outil de Gestion des Données Fournisseurs</h3>", unsafe_allow_html=True)
+
+if st.session_state.user_message:
+    msg = st.session_state.user_message
+    st.success(msg['text'], icon=msg['icon'])
+    st.session_state.user_message = None
+
 col1, col2 = st.columns([3, 1])
 with col1:
     search_term = st.text_input("Rechercher par raison sociale", placeholder="Rechercher...")
 with col2:
     st.write("")
     st.write("")
-    if st.button("➕ Ajouter un nouveau fournisseur", use_container_width=True):
+    if st.button("Ajouter un nouveau fournisseur", use_container_width=True):
         supplier_form()
+
 offset = (st.session_state.page_number - 1) * RECORDS_PER_PAGE
 suppliers_df, total_records = db.get_suppliers(RECORDS_PER_PAGE, offset, search_term)
 total_pages = math.ceil(total_records / RECORDS_PER_PAGE) if total_records > 0 else 1
 st.header("Liste des Fournisseurs")
 st.write(f"Affichage de {len(suppliers_df)} sur {total_records} fournisseurs.")
+
 if not suppliers_df.empty:
     for index, row in suppliers_df.iterrows():
-        expander = st.expander(f"**{row['raison_sociale']}** (ID: {row['id']})")
+        expander = st.expander(f"{row['raison_sociale']} (ID: {row['id']})")
         with expander:
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
@@ -180,17 +185,17 @@ if not suppliers_df.empty:
                     st.toast(f"Fournisseur '{row['raison_sociale']}' supprimé.", icon="🗑️")
                     st.rerun()
     st.write("")
-    col_nav1, col_nav2, col_nav3 = st.columns([2, 1, 2])
+    col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
     with col_nav1:
         if st.session_state.page_number > 1:
-            if st.button("⬅️ Précédent"):
+            if st.button("Précédent"):
                 st.session_state.page_number -= 1
                 st.rerun()
     with col_nav2:
         st.write(f"Page **{st.session_state.page_number}** sur **{total_pages}**")
     with col_nav3:
         if st.session_state.page_number < total_pages:
-            if st.button("Suivant ➡️", use_container_width=True):
+            if st.button("Suivant", use_container_width=True):
                 st.session_state.page_number += 1
                 st.rerun()
 else:
