@@ -44,7 +44,7 @@ def supplier_form(supplier_id=None):
         tab1, tab2 = st.tabs(["📄 Informations Générales", "📞 Contacts & Suivi"])
         with tab1:
             raison_sociale = st.text_input("Raison Sociale", value=default_name)
-            id_oracle = st.text_input("ID Oracle", value=default_id_oracle)
+            id_oracle = st.text_input("Numéro de fournisseur", value=default_id_oracle)
             adresse = st.text_area("Adresse", value=default_adresse)
             pays_canton = st.selectbox("Pays/Canton", ["Genève", "Vaud", "France", "Autre"], index=0)
             est_prospect = st.checkbox("Prospect", value=supplier_data.get('est_prospect', False))
@@ -79,7 +79,7 @@ with st.sidebar:
                 else:
                     df = pd.read_excel(uploaded_file)
                 
-                required_cols = ['Raison Sociale', 'ID Oracle', 'Adresse']
+                required_cols = ['Raison Sociale', 'Numéro de fournisseur', 'Adresse']
                 if all(col in df.columns for col in required_cols):
                     with st.spinner("Analyse en cours..."):
                         new, conflicts = db.analyze_import_data(df)
@@ -109,7 +109,7 @@ with st.sidebar:
             with st.form("conflict_form"):
                 for conflict in conflicts:
                     with st.expander(f"**{conflict['raison_sociale']}** - Données modifiées"):
-                        st.write(f"**ID Oracle :** `{conflict['old_id']}` ➡️ `{conflict['new_id']}`")
+                        st.write(f"**Numéro de fournisseur :** `{conflict['old_id']}` ➡️ `{conflict['new_id']}`")
                         st.write(f"**Adresse :** `{conflict['old_adresse']}` ➡️ `{conflict['new_adresse']}`")
                         
                         approve = st.checkbox("Approuver ce changement", key=conflict['raison_sociale'])
@@ -158,7 +158,7 @@ if not suppliers_df.empty:
                 st.write(f"**Pays/Canton:** {row['pays_canton']}")
                 st.write(f"**Tags:** {row['tags']}")
             with col2:
-                st.write(f"**ID Oracle:** {row['id_oracle']}")
+                st.write(f"**Numéro de fournisseur:** {row['id_oracle']}")
                 st.write(f"**Adresse:** {row['adresse']}")
                 st.write(f"**Prospect:** {'Oui' if row['est_prospect'] else 'Non'}")
             with col3:
