@@ -1,4 +1,4 @@
-# Remplacez le contenu de votre app.py par celui-ci
+# Remplacez le contenu de votre app.py par celui-ci.
 
 import streamlit as st
 import pandas as pd
@@ -27,11 +27,10 @@ def supplier_form(supplier_id=None):
         supplier_data = {}
 
     # Pour l'autocomplétion
-    suppliers_map = db.get_suppliers_map()
-    supplier_names = [""] + list(suppliers_map.keys())
+    prefill_data = db.get_suppliers_prefill_data()
+    supplier_names = [""] + list(prefill_data.keys())
 
     with st.form("supplier_form"):
-        # Section d'autocomplétion
         st.write("Pour pré-remplir, choisissez un fournisseur connu :")
         selected_name = st.selectbox("Choisir un fournisseur", options=supplier_names, index=0, label_visibility="collapsed")
         
@@ -39,15 +38,16 @@ def supplier_form(supplier_id=None):
 
         # Pré-remplissage des champs
         default_name = selected_name if selected_name else supplier_data.get('raison_sociale', '')
-        default_id_oracle = suppliers_map.get(selected_name, supplier_data.get('id_oracle', ''))
-
+        selected_data = prefill_data.get(selected_name, {})
+        default_id_oracle = selected_data.get('id_oracle', supplier_data.get('id_oracle', ''))
+        default_adresse = selected_data.get('adresse', supplier_data.get('adresse', ''))
 
         tab1, tab2 = st.tabs(["📄 Informations Générales", "📞 Contacts & Suivi"])
         
         with tab1:
             raison_sociale = st.text_input("Raison Sociale", value=default_name)
-            id_oracle = st.text_input("Numéro de fournisseur", value=default_id_oracle)
-            adresse = st.text_area("Adresse", value=supplier_data.get('adresse', ''))
+            id_oracle = st.text_input("ID Oracle", value=default_id_oracle)
+            adresse = st.text_area("Adresse", value=default_adresse)
             pays_canton = st.selectbox("Pays/Canton", ["Genève", "Vaud", "France", "Autre"], index=0)
             est_prospect = st.checkbox("Prospect", value=supplier_data.get('est_prospect', False))
 
@@ -90,12 +90,13 @@ with st.sidebar:
                     df = pd.read_excel(uploaded_file)
                 
                 # Vérification des colonnes
-                if 'Raison Sociale' in df.columns and 'Numéro de fournisseur' in df.columns:
+                required_cols = ['Raison Sociale', 'ID Oracle', 'Adresse']
+                if all(col in df.columns for col in required_cols):
                     with st.spinner("Importation en cours..."):
                         inserted, updated = db.upsert_suppliers_from_df(df)
                     st.success(f"Importation terminée ! 🎉\n- {inserted} fournisseurs ajoutés.\n- {updated} fournisseurs mis à jour.")
                 else:
-                    st.error("Le fichier doit contenir les colonnes 'Raison Sociale' et 'Numéro de fournisseur'.")
+                    st.error(f"Le fichier doit contenir les colonnes : {', '.join(required_cols)}.")
             except Exception as e:
                 st.error(f"Une erreur est survenue lors de l'import : {e}")
 
@@ -130,7 +131,7 @@ if not suppliers_df.empty:
                 st.write(f"**Pays/Canton:** {row['pays_canton']}")
                 st.write(f"**Tags:** {row['tags']}")
             with col2:
-                st.write(f"**Numéro de fournisseur:** {row['id_oracle']}")
+                st.write(f"**ID Oracle:** {row['id_oracle']}")
                 st.write(f"**Adresse:** {row['adresse']}")
                 st.write(f"**Prospect:** {'Oui' if row['est_prospect'] else 'Non'}")
             
