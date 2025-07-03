@@ -223,7 +223,7 @@ if not suppliers_df.empty:
     for index, row in suppliers_df.iterrows():
         # --- MODIFICATION DE L'AFFICHAGE ---
         supplier_num = row['id_oracle'] if pd.notna(row['id_oracle']) and row['id_oracle'] else "N/A"
-        expander_title = f"{row['raison_sociale']} (N° Fournisseur: {supplier_num})"
+        expander_title = f"{row['raison_sociale']} ({supplier_num})"
         
         with st.expander(expander_title):
             col1, col2, col3 = st.columns([2, 2, 1])
