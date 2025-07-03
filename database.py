@@ -111,8 +111,7 @@ def get_suppliers_prefill_data():
 def analyze_import_data(df):
     """
     Analyse un DataFrame importé et le compare à la base de données.
-    Retourne des listes de nouveaux fournisseurs, de fournisseurs à mettre à jour,
-    et de conflits potentiels.
+    Retourne des listes de nouveaux fournisseurs et de conflits (uniquement les champs modifiés).
     """
     conn = get_db_connection()
     existing_suppliers_df = pd.read_sql_query("SELECT id, raison_sociale, id_oracle, adresse FROM suppliers", conn)
@@ -121,34 +120,37 @@ def analyze_import_data(df):
     new_suppliers = []
     conflicts = []
 
-    # Convertir le DataFrame existant en dictionnaire pour un accès rapide
     existing_map = existing_suppliers_df.set_index('raison_sociale').to_dict('index')
 
     for _, row in df.iterrows():
         name = row['Raison Sociale']
         new_data = {
             'raison_sociale': name,
-            'id_oracle': str(row['Numéro de fournisseur']) if pd.notna(row['Numéro de fournisseur']) else '',
+            'id_oracle': str(row['ID Oracle']) if pd.notna(row['ID Oracle']) else '',
             'adresse': str(row['Adresse']) if pd.notna(row['Adresse']) else ''
         }
 
         if name in existing_map:
-            # Le fournisseur existe, on vérifie les conflits
             old_data = existing_map[name]
-            id_changed = new_data['id_oracle'] != str(old_data['id_oracle'])
-            address_changed = new_data['adresse'] != str(old_data['adresse'])
+            # Assurer la comparaison de chaînes de caractères pour éviter les erreurs de type
+            old_id_str = str(old_data['id_oracle']) if pd.notna(old_data['id_oracle']) else ''
+            old_adresse_str = str(old_data['adresse']) if pd.notna(old_data['adresse']) else ''
+
+            id_changed = new_data['id_oracle'] != old_id_str
+            address_changed = new_data['adresse'] != old_adresse_str
 
             if id_changed or address_changed:
                 conflict_details = {
                     'raison_sociale': name,
-                    'old_id': old_data['id_oracle'],
+                    'old_id': old_id_str,
                     'new_id': new_data['id_oracle'],
-                    'old_adresse': old_data['adresse'],
+                    'id_changed': id_changed,
+                    'old_adresse': old_adresse_str,
                     'new_adresse': new_data['adresse'],
+                    'address_changed': address_changed,
                 }
                 conflicts.append(conflict_details)
         else:
-            # Nouveau fournisseur
             new_suppliers.append(new_data)
             
     return new_suppliers, conflicts
