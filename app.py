@@ -1,5 +1,3 @@
-# Remplacez le contenu de votre app.py par celui-ci.
-
 import streamlit as st
 import pandas as pd
 import math
@@ -7,9 +5,6 @@ import database as db
 
 # --- Configuration de la Page ---
 st.set_page_config(layout="wide", page_title="Gestion Fournisseurs GA")
-
-# --- Initialisation de la DB ---
-db.init_db()
 
 # --- État de Session ---
 if 'page_number' not in st.session_state:
@@ -89,7 +84,6 @@ with st.sidebar:
                 else:
                     df = pd.read_excel(uploaded_file)
                 
-                # Vérification des colonnes
                 required_cols = ['Raison Sociale', 'ID Oracle', 'Adresse']
                 if all(col in df.columns for col in required_cols):
                     with st.spinner("Importation en cours..."):
